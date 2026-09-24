@@ -1,37 +1,28 @@
-const express = require("express");
-const session = require("express-session");
-const path = require("path");
+const express = require('express');
+const session = require('express-session');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(session({
-  secret: process.env.SESSION_SECRET || "change-this-secret-in-production",
+  secret: process.env.SESSION_SECRET || 'ogila-demo-session-change-me',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === "production", httpOnly: true }
+  cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, sameSite: 'lax' }
 }));
-app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/config", (_req, res) => {
-  res.json({
-    appName: "OGILA TRADERS",
-    derivOAuthConfigured: Boolean(process.env.DERIV_CLIENT_ID),
-    mode: "demo",
-    message: "Set DERIV_CLIENT_ID and DERIV_REDIRECT_URI to enable your Deriv OAuth integration."
-  });
-});
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "OGILA TRADERS" });
-});
+app.get('/api/health', (req, res) => res.json({ ok: true, service: 'OGILA TRADERS', mode: 'demo' }));
+app.get('/api/config', (req, res) => res.json({
+  derivConfigured: Boolean(process.env.DERIV_CLIENT_ID),
+  mode: 'demo'
+}));
 
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`OGILA TRADERS running on port ${PORT}`);
 });
