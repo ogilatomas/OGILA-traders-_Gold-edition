@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OGILA TRADERS | Smart Analysis. Better Decisions.</title>
+  <meta name="description" content="OGILA TRADERS professional market analysis and automated trading dashboard.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">O</span><div><b>OGILA</b><small>TRADERS</small></div></div>
+      <nav>
+        <a class="active" href="#dashboard">⌂ Dashboard</a>
+        <a href="#markets">◈ Markets</a>
+        <a href="#analysis">◉ AI Analysis</a>
+        <a href="#speedbot">⚡ Speed Bot</a>
+        <a href="#strategy">▦ Strategy Builder</a>
+        <a href="#history">◷ Trade History</a>
+        <a href="#risk">◉ Risk Controls</a>
+      </nav>
+      <div class="side-note">
+        <b>Demo mode</b>
+        <p>Test strategies with simulated data before connecting a real account.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu" id="menuBtn">☰</button>
+        <div>
+          <span class="eyebrow">TRADING PLATFORM</span>
+          <h1>OGILA TRADERS</h1>
+        </div>
+        <div class="top-actions">
+          <span class="status"><i></i> DEMO</span>
+          <button class="outline" id="loginBtn">Login with Deriv</button>
+        </div>
+      </header>
+
+      <section class="hero" id="dashboard">
+        <div>
+          <span class="eyebrow">SMART ANALYSIS • AUTOMATION • RISK CONTROL</span>
+          <h2>Trade with data.<br><em>Stay in control.</em></h2>
+          <p>Analyze live-style market feeds, test strategies and manage automation from one professional workspace.</p>
+          <div class="hero-actions">
+            <a class="primary" href="#analysis">Open Analysis</a>
+            <a class="ghost" href="#speedbot">Configure Speed Bot</a>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="mini-label">BOT STATUS</div>
+          <div class="bot-state"><span class="pulse"></span> READY</div>
+          <div class="hero-grid">
+            <span>Mode</span><b>Demo</b>
+            <span>Risk limit</span><b>$10.00</b>
+            <span>Strategy</span><b>Trend + RSI</b>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="stat"><span>Demo Balance</span><strong id="balance">$1,000.00</strong><small>Simulated</small></div>
+        <div class="stat"><span>Today's P/L</span><strong id="pnl">+$0.00</strong><small>Demo session</small></div>
+        <div class="stat"><span>Signals</span><strong id="signalCount">0</strong><small>Generated locally</small></div>
+        <div class="stat"><span>Bot</span><strong id="botLabel">READY</strong><small>Manual start required</small></div>
+      </section>
+
+      <section id="markets" class="section">
+        <div class="section-head"><div><span class="eyebrow">LIVE MARKET WORKSPACE</span><h3>Markets</h3></div><button class="outline" id="refreshMarkets">Refresh</button></div>
+        <div class="market-grid" id="marketGrid"></div>
+      </section>
+
+      <section id="analysis" class="section two-col">
+        <div class="panel chart-panel">
+          <div class="section-head"><div><span class="eyebrow">MARKET ANALYSIS</span><h3 id="chartTitle">Volatility 100 Index</h3></div><select id="symbolSelect"></select></div>
+          <div class="chart-wrap"><canvas id="chart" width="900" height="360"></canvas></div>
+          <div class="indicator-row">
+            <span>RSI <b id="rsi">--</b></span>
+            <span>Trend <b id="trend">--</b></span>
+            <span>Momentum <b id="momentum">--</b></span>
+            <span>Volatility <b id="volatility">--</b></span>
+          </div>
+        </div>
+        <div class="panel analysis-panel">
+          <span class="eyebrow">AI ANALYSIS ENGINE</span>
+          <h3>Signal assistant</h3>
+          <p class="muted">Educational/demo analysis based on simulated price series. It is not a guarantee of profit.</p>
+          <div class="signal-box" id="signalBox"><span>WAITING</span><b>Run an analysis</b></div>
+          <button class="primary wide" id="analyzeBtn">Analyze Market</button>
+          <div class="checklist">
+            <div>✓ Trend detection</div><div>✓ RSI-style momentum check</div><div>✓ Support/resistance estimate</div><div>✓ Volatility filter</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="speedbot" class="section">
+        <div class="section-head"><div><span class="eyebrow">AUTOMATION</span><h3>Speed Bot</h3></div><span class="warning">DEMO ONLY</span></div>
+        <div class="panel bot-panel">
+          <div class="bot-controls">
+            <label>Market<select id="botSymbol"></select></label>
+            <label>Strategy<select id="strategySelect"><option>Trend + RSI</option><option>Momentum</option><option>Breakout</option><option>Range</option></select></label>
+            <label>Stake<input id="stake" type="number" min="0.35" step="0.01" value="1.00"></label>
+            <label>Duration<select><option>1 Tick</option><option>5 Ticks</option><option>10 Ticks</option></select></label>
+            <label>Max Trades<input id="maxTrades" type="number" min="1" value="10"></label>
+            <label>Stop Loss<input id="stopLoss" type="number" min="0" step="0.01" value="10"></label>
+            <label>Take Profit<input id="takeProfit" type="number" min="0" step="0.01" value="20"></label>
+          </div>
+          <div class="bot-footer">
+            <div><span class="bot-dot" id="botDot"></span><b id="botStatus">Bot stopped</b><small id="botMessage">No automated trades are running.</small></div>
+            <div class="hero-actions"><button class="primary" id="startBot">Start Demo Bot</button><button class="outline" id="stopBot">Stop</button></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="strategy" class="section">
+        <div class="section-head"><div><span class="eyebrow">STRATEGY BUILDER</span><h3>Build a rule set</h3></div></div>
+        <div class="panel strategy-builder">
+          <div class="rule"><select><option>IF</option></select><select><option>RSI</option><option>Trend</option><option>Momentum</option></select><select><option>less than</option><option>greater than</option></select><input value="30"></div>
+          <div class="rule"><select><option>AND</option></select><select><option>Trend</option><option>RSI</option><option>Volatility</option></select><select><option>equals</option></select><select><option>UP</option><option>DOWN</option><option>STRONG</option></select></div>
+          <div class="rule"><select><option>THEN</option></select><select><option>Generate UP signal</option><option>Generate DOWN signal</option><option>Wait</option></select></div>
+          <div class="strategy-preview">Strategy preview: <b>IF RSI &lt; 30 AND Trend = UP THEN Generate UP signal</b></div>
+        </div>
+      </section>
+
+      <section id="history" class="section">
+        <div class="section-head"><div><span class="eyebrow">ACTIVITY</span><h3>Trade History</h3></div><button class="outline" id="clearHistory">Clear demo history</button></div>
+        <div class="panel table-wrap">
+          <table><thead><tr><th>Time</th><th>Market</th><th>Signal</th><th>Stake</th><th>Result</th><th>Mode</th></tr></thead>
+          <tbody id="historyBody"><tr><td colspan="6" class="empty">No demo trades yet.</td></tr></tbody></table>
+        </div>
+      </section>
+
+      <section id="risk" class="section">
+        <div class="section-head"><div><span class="eyebrow">SAFETY</span><h3>Risk Controls</h3></div></div>
+        <div class="risk-grid">
+          <div class="panel"><b>Daily loss limit</b><p>Stop automation when the configured loss threshold is reached.</p><span class="toggle on"></span></div>
+          <div class="panel"><b>Maximum consecutive losses</b><p>Pause the bot after repeated losing demo trades.</p><span class="toggle on"></span></div>
+          <div class="panel"><b>Emergency stop</b><p>Stops the local demo bot immediately.</p><button class="danger" id="emergency">EMERGENCY STOP</button></div>
+        </div>
+      </section>
+
+      <footer><b>OGILA TRADERS</b><span>Smart Analysis. Better Decisions.</span><span>Demo build • Connect your own Deriv OAuth/API credentials before live use.</span></footer>
+    </main>
+  </div>
+  <script src="/script.js"></script>
+</body>
+</html>
