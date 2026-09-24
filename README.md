@@ -1,37 +1,15 @@
-# OGILA TRADERS
-
-Professional demo trading-analysis dashboard designed for a future Deriv integration.
-
-## Included
-- Professional responsive dashboard
-- Market cards and simulated live-style feed
-- Chart and technical-style indicators
-- Analysis engine (demo)
-- Speed Bot (demo only)
-- Risk controls
-- Strategy builder UI
-- Demo trade history
-- Node/Express server
-- Placeholder endpoint for Deriv OAuth configuration
-
-## Run locally
-1. Install Node.js.
-2. Open a terminal in this folder.
-3. Run:
-   npm install
-   npm start
-4. Open http://localhost:3000
-
-## Deriv integration
-This starter does NOT store Deriv passwords and does not fake authentication.
-Before enabling real authentication/trading, create a Deriv OAuth application and configure secure server-side credentials/environment variables. Do not commit client secrets or tokens to GitHub.
-
-Suggested environment variables:
-DERIV_CLIENT_ID=your_client_id
-DERIV_REDIRECT_URI=https://your-domain.example/callback
-SESSION_SECRET=long-random-secret
-
-The UI currently keeps the bot in demo mode. A production Deriv connector should validate OAuth state/PKCE server-side, securely store sessions/tokens, subscribe to authorized WebSocket streams, and require explicit user confirmation before real-money actions.
-
-## Safety
-Market signals are informational/educational and do not guarantee profit. Test automation with a demo account and implement server-side risk limits before any live trading.
+OGILA TRADERS — Professional Dashboard
+A professional, responsive trading-dashboard starter inspired by modern trading terminal layouts while using original OGILA TRADERS branding and UI.
+Deploy on Render
+Runtime: Node
+Branch: main
+Root Directory: blank
+Build Command: `npm install`
+Start Command: `npm start`
+Plan: Free for testing
+Important
+This version is demo UI only. It does not execute real trades or store Deriv passwords. Deriv OAuth, live market data and any real-money trading controls must be added securely in a later step.
+Environment variables for later integration
+`SESSION_SECRET`
+`DERIV_CLIENT_ID`
+`DERIV_REDIRECT_URI`
