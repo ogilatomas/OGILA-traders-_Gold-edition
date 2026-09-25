@@ -1,4 +1,4 @@
- step.OGILA TRADERS — Professional Dashboard
+OGILA TRADERS — Professional Dashboard
 A trading-dashboard terminal with real live market prices, real AI market analysis, a working strategy/bot builder, and real Deriv account trading (real money or Deriv's free virtual/demo account — your choice, made at login).
 ⚠️ Read before enabling real trading
 Once a user connects a real-money Deriv account and sets a strategy's Execution to "Real Deriv account", the bot places actual contracts with actual funds. There is no simulation in that path. Before pointing this at real money:
@@ -28,4 +28,4 @@ Still not built (by design, for safety)
 No spend/loss caps beyond per-strategy TP/SL.
 No email/SMS confirmation before a real trade fires from the bot loop — only the one-time checkbox at strategy save time.
 Deriv tokens live in the server session (in-memory) only; they're lost on restart and never sent to the browser.
-If you want any of the above hardened before real users touch this, that's the natural next
+If you want any of the above hardened before real users touch this, that's the natural next step.
