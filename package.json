@@ -4,6 +4,7 @@
   "private": true,
   "description": "OGILA TRADERS professional trading dashboard",
   "main": "server.js",
+  "engines": { "node": ">=18.0.0" },
   "scripts": { "start": "node server.js" },
   "dependencies": {
     "express": "^4.21.2",
