@@ -1,151 +1,424 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#050914" />
-  <title>OGILA TRADERS — Professional Trading Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css" />
-</head>
-<body>
-  <div class="app-shell">
-    <header class="topbar">
-      <a class="brand" href="#dashboard" aria-label="OGILA TRADERS home">
-        <span class="brand-mark"><span>OT</span></span>
-        <span class="brand-name"><b>OGILA</b><strong>TRADERS</strong></span>
-      </a>
-      <nav class="main-nav" aria-label="Primary navigation">
-        <a class="active" href="#dashboard">⌂ <span>Dashboard</span></a>
-        <a href="#bots">▣ <span>Bot Builder</span></a>
-        <a href="#bots">♟ <span>Free Bots</span></a>
-        <a href="#scanner">⌕ <span>Pro Scanner</span><em>HOT</em></a>
-        <a href="#strategy">⌬ <span>Strategy Pro</span></a>
-        <a href="#speed">◔ <span>Speedbot</span></a>
-        <a href="#ai">✦ <span>AI Analysis</span></a>
-        <a href="#autotrader">▤ <span>Auto Trader</span></a>
-        <a href="#analysis">⌕ <span>Analysis Tool</span></a>
-        <a href="#manual">▣ <span>Manual Trader</span></a>
-        <a href="#charts">⌁ <span>Charts</span></a>
-      </nav>
-      <div class="account-pill"><span class="coin">◉</span><b id="balance">10,000.00</b><span>USD</span><button aria-label="Account menu">⌄</button></div>
-    </header>
+const $ = (s) => document.querySelector(s);
+const toastEl = $('#toast');
+let toastTimer;
+function toast(message){ clearTimeout(toastTimer); toastEl.textContent=message; toastEl.classList.add('show'); toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2600); }
+function scrollToId(id){ document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'center'}); }
 
-    <main id="dashboard" class="dashboard">
-      <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
-      <div class="grid-floor"></div>
-      <div class="market-stream" aria-hidden="true">
-        <span class="candle c1 up"></span><span class="candle c2 down"></span><span class="candle c3 up"></span><span class="candle c4 up"></span><span class="candle c5 down"></span><span class="candle c6 up"></span><span class="candle c7 up"></span><span class="candle c8 down"></span><span class="candle c9 up"></span><span class="candle c10 up"></span><span class="candle c11 down"></span><span class="candle c12 up"></span>
-      </div>
+// ---------------------------------------------------------------------------
+// LIVE PRICES — Deriv public WebSocket feed (no login required for ticks)
+// ---------------------------------------------------------------------------
+const SYMBOLS = ['R_75', 'BOOM500', 'CRASH500'];
+const priceState = {};
+SYMBOLS.forEach(s => priceState[s] = { last: null, open: null, history: [] });
 
-      <section class="welcome">
-        <div class="eyebrow">OGILA TRADERS • PROFESSIONAL TERMINAL</div>
-        <h1>Good afternoon, <span>Trader</span> <small>👋</small></h1>
-        <p>Trade smarter with analysis, automation and disciplined risk controls.</p>
-      </section>
+let priceSocket = null;
+let reconnectTimer = null;
 
-      <section class="ticker-row" aria-label="Market ticker">
-        <div class="ticker live"><span class="pulse" id="feedPulse"></span> <span id="feedStatus">CONNECTING…</span></div>
-        <div class="ticker" data-symbol="R_75"><b>VOLATILITY 75</b><span id="price-R_75">—</span><i id="change-R_75">+0.00%</i></div>
-        <div class="ticker" data-symbol="BOOM500"><b>BOOM 500</b><span id="price-BOOM500">—</span><i id="change-BOOM500">+0.00%</i></div>
-        <div class="ticker" data-symbol="CRASH500"><b>CRASH 500</b><span id="price-CRASH500">—</span><i id="change-CRASH500">+0.00%</i></div>
-      </section>
+function connectPriceFeed(){
+  try {
+    priceSocket = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+  } catch (e) {
+    setFeedStatus(false);
+    scheduleReconnect();
+    return;
+  }
 
-      <section class="quick-actions" id="bots">
-        <article class="action-card red">
-          <div class="action-icon">↥</div><div><h3>Upload Bot</h3><p>Import an XML or JSON strategy bot.</p></div><button onclick="toast('Bot upload is available in the next build.')">Open →</button>
-        </article>
-        <article class="action-card green">
-          <div class="action-icon">🤖</div><div><h3>Free Bots</h3><p>Browse ready-made demo strategies.</p></div><button onclick="scrollToId('strategy')">Open →</button>
-        </article>
-        <article class="action-card purple">
-          <div class="action-icon">✣</div><div><h3>Bot Editor</h3><p>Build a custom bot with visual rules.</p></div><button onclick="scrollToId('strategy')">Open →</button>
-        </article>
-        <article class="action-card gold">
-          <div class="action-icon">⚡</div><div><h3>Quick Strategy</h3><p>Start with a pre-built strategy template.</p></div><button onclick="scrollToId('strategy')">Open →</button>
-        </article>
-      </section>
+  priceSocket.onopen = () => {
+    setFeedStatus(true);
+    SYMBOLS.forEach(symbol => priceSocket.send(JSON.stringify({ ticks: symbol, subscribe: 1 })));
+  };
 
-      <section class="feature-grid">
-        <article class="feature-panel referral">
-          <div class="panel-label">PARTNER REFERRAL</div>
-          <div class="panel-head"><h2>Grow with OGILA</h2><span class="badge">Coming soon</span></div>
-          <p>Invite traders to the platform and manage your referral activity from one professional dashboard.</p>
-          <div class="panel-actions"><button class="ghost" onclick="toast('Referral center will be connected later.')">Show more ↓</button><button class="primary" onclick="toast('Referral tools are being prepared.')">Refer a partner →</button></div>
-        </article>
+  priceSocket.onmessage = (event) => {
+    let data;
+    try { data = JSON.parse(event.data); } catch (e) { return; }
+    if (data.msg_type === 'tick' && data.tick) handleTick(data.tick.symbol, Number(data.tick.quote));
+    if (data.error) console.error('Deriv API error:', data.error.message);
+  };
 
-        <article class="feature-panel scanner" id="scanner">
-          <div class="panel-label">MARKET SCANNER</div>
-          <div class="scan-row"><div><h2>Signals Monitor</h2><p id="scanSubtitle">Run AI Analysis to populate live signals.</p></div><div class="scan-score" id="scanScore">--<span>%</span></div></div>
-          <div class="meter"><span id="scanMeter" style="width:0%"></span></div>
-          <div class="mini-stats"><span>Momentum <b id="scanMomentum">—</b></span><span>Trend <b id="scanTrend">—</b></span><span>Risk <b id="scanRisk">—</b></span></div>
-        </article>
-      </section>
+  priceSocket.onclose = () => { setFeedStatus(false); scheduleReconnect(); };
+  priceSocket.onerror = () => { priceSocket.close(); };
+}
 
-      <section class="tools-grid">
-        <article class="tool-card" id="analysis"><span class="tool-symbol">✦</span><div><h3>AI Analysis</h3><p id="aiSummary">Generate a structured market readout with trend, momentum and risk notes.</p></div><button onclick="runAnalysis()" id="analyzeBtn">Analyze market</button></article>
-        <article class="tool-card" id="strategy"><span class="tool-symbol">⌘</span><div><h3>Strategy Builder</h3><p>Combine entry rules, filters, stop settings and position sizing.</p></div><button onclick="openStrategyModal()">Build strategy</button></article>
-        <article class="tool-card" id="charts"><span class="tool-symbol">▥</span><div><h3>Live Charts</h3><p>Switch between markets and inspect demo price movement.</p></div><button onclick="toast('Live Deriv chart connection comes next.')">Open charts</button></article>
-      </section>
+function scheduleReconnect(){ clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectPriceFeed, 4000); }
 
-      <section class="speedbar" id="speed">
-        <button class="run-btn" onclick="toggleBot()"><span id="runIcon">▶</span> <span id="runText">Run Demo Bot</span></button>
-        <div class="speed-copy"><span>Execution Speed</span><b id="speedValue">FAST SPEED</b></div>
-        <input id="speedRange" type="range" min="1" max="3" value="3" aria-label="Execution speed" />
-        <div class="bot-status"><span class="status-dot"></span><span id="botStatus">READY</span></div>
-      </section>
+function setFeedStatus(live){
+  const statusEl = $('#feedStatus');
+  const pulseEl = $('#feedPulse');
+  if (!statusEl) return;
+  statusEl.textContent = live ? 'LIVE MARKET FEED' : 'RECONNECTING…';
+  pulseEl.style.background = live ? '#1ee5a6' : '#b56e3d';
+  pulseEl.style.boxShadow = live ? '0 0 12px #1ee5a6' : '0 0 12px #b56e3d';
+}
 
-      <section class="active-strategy" id="activeStrategyBar">
-        <span>Active strategy:</span> <b id="activeStrategyLabel">None — build one to run the bot</b>
-      </section>
+function handleTick(symbol, quote){
+  const state = priceState[symbol];
+  if (!state || !Number.isFinite(quote)) return;
+  if (state.open === null) state.open = quote;
+  state.last = quote;
+  state.history.push(quote);
+  if (state.history.length > 60) state.history.shift();
 
-      <section class="trade-log">
-        <div class="panel-label">TRADE LOG (DEMO)</div>
-        <div id="tradeLog" class="trade-log-body"><span class="empty">No trades yet. Run the demo bot to see simulated fills here.</span></div>
-      </section>
-    </main>
+  const priceEl = $('#price-' + symbol);
+  const changeEl = $('#change-' + symbol);
+  if (priceEl) priceEl.textContent = quote.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (changeEl) {
+    const pct = ((quote - state.open) / state.open) * 100;
+    const sign = pct >= 0 ? '+' : '';
+    changeEl.textContent = `${sign}${pct.toFixed(2)}%`;
+    changeEl.style.color = pct >= 0 ? '#c7a33a' : '#b56e3d';
+  }
+}
 
-    <div class="modal-overlay" id="strategyModal">
-      <div class="modal">
-        <div class="modal-head"><h2>Strategy Builder</h2><button class="modal-close" onclick="closeStrategyModal()">✕</button></div>
-        <form id="strategyForm" class="modal-body">
-          <label>Market
-            <select id="stSymbol">
-              <option value="R_75">Volatility 75</option>
-              <option value="BOOM500">Boom 500</option>
-              <option value="CRASH500">Crash 500</option>
-            </select>
-          </label>
-          <label>Direction
-            <select id="stDirection">
-              <option value="RISE">Rise (price moves up)</option>
-              <option value="FALL">Fall (price moves down)</option>
-            </select>
-          </label>
-          <label>Stake per trade (USD)
-            <input id="stStake" type="number" min="1" max="1000" step="1" value="10" required />
-          </label>
-          <label>Take profit — stop session at (%)
-            <input id="stTakeProfit" type="number" min="0" max="100" step="1" value="20" />
-          </label>
-          <label>Stop loss — stop session at (%)
-            <input id="stStopLoss" type="number" min="0" max="100" step="1" value="15" />
-          </label>
-          <button type="submit" class="primary">Save strategy</button>
-        </form>
-        <div class="panel-label" style="margin-top:14px">SAVED STRATEGIES</div>
-        <div id="strategyList" class="strategy-list"><span class="empty">No strategies saved yet.</span></div>
-      </div>
-    </div>
+connectPriceFeed();
 
-    <div class="risk-chip" onclick="toast('Risk controls: demo only. Never trade funds you cannot afford to lose.')">⚠ Risk Disclaimer</div>
-    <button class="ai-orb" id="ai" onclick="runAnalysis()"><span>AI</span><i></i></button>
-    <div class="toast" id="toast"></div>
+// ---------------------------------------------------------------------------
+// AI ANALYSIS
+// ---------------------------------------------------------------------------
+async function runAnalysis(){
+  const btn = $('#analyzeBtn');
+  const summaryEl = $('#aiSummary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Analyzing…'; }
+  if (summaryEl) summaryEl.textContent = 'Reading live ticks and generating a readout…';
 
-    <footer class="footer"><span>OGILA TRADERS © 2026</span><span>Demo terminal • No real trades are executed</span><span>EN ▾</span></footer>
-  </div>
-  <script src="/script.js"></script>
-</body>
-</html>
+  const markets = {};
+  SYMBOLS.forEach(s => { markets[s] = priceState[s].history.slice(-20); });
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ markets })
+    });
+    const data = await res.json();
+
+    if (!res.ok) { toast(data.error || 'Analysis failed.'); if (summaryEl) summaryEl.textContent = 'Analysis failed — try again in a moment.'; return; }
+    if (data.fallback) { toast('AI Analysis needs setup — see README (ANTHROPIC_API_KEY).'); if (summaryEl) summaryEl.textContent = data.summary; return; }
+
+    $('#scanScore').innerHTML = `${data.score}<span>%</span>`;
+    $('#scanMeter').style.width = `${data.score}%`;
+    $('#scanMomentum').textContent = data.momentum;
+    $('#scanTrend').textContent = data.trend;
+    $('#scanRisk').textContent = data.risk;
+    $('#scanSubtitle').textContent = 'Live AI readout across tracked markets.';
+    if (summaryEl) summaryEl.textContent = data.summary;
+    toast(`AI Analysis: ${data.trend} · momentum ${data.momentum} · risk ${data.risk}`);
+  } catch (err) {
+    toast('Could not reach the analysis service.');
+    if (summaryEl) summaryEl.textContent = 'Could not reach the analysis service.';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Analyze market'; }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DERIV ACCOUNT CONNECTION (real OAuth login, real or virtual account)
+// ---------------------------------------------------------------------------
+const derivState = { connected: false, accounts: [], active: null, isVirtual: null, currency: 'USD' };
+
+function connectDerivAccount(){ window.location.href = '/auth/deriv/login'; }
+
+async function checkDerivStatus(){
+  try {
+    const res = await fetch('/api/deriv/accounts');
+    const data = await res.json();
+    derivState.connected = data.connected;
+    derivState.accounts = data.accounts || [];
+    derivState.active = data.active;
+    updateDerivUI();
+    if (data.connected) await refreshRealBalance();
+  } catch (e) { /* silent */ }
+}
+
+function updateDerivUI(){
+  const btn = $('#derivConnectBtn');
+  const panel = $('#derivPanel');
+  const badge = $('#accountBadge');
+  const select = $('#derivAccountSelect');
+  const warning = $('#derivRealWarning');
+
+  if (!derivState.connected) {
+    btn.textContent = 'Connect Deriv Account';
+    btn.classList.remove('connected');
+    panel.hidden = true;
+    badge.textContent = 'LOCAL DEMO';
+    badge.className = 'acct-badge local';
+    return;
+  }
+
+  btn.textContent = 'Deriv Connected ✓';
+  btn.classList.add('connected');
+  panel.hidden = false;
+
+  select.innerHTML = derivState.accounts.map(a =>
+    `<option value="${a.loginid}" ${a.loginid === derivState.active ? 'selected' : ''}>${a.loginid} — ${a.currency} ${a.isVirtual ? '(Virtual/Demo)' : '(REAL MONEY)'}</option>`
+  ).join('');
+
+  const active = derivState.accounts.find(a => a.loginid === derivState.active);
+  derivState.isVirtual = active ? active.isVirtual : null;
+  derivState.currency = active ? active.currency : 'USD';
+  warning.hidden = !(active && !active.isVirtual);
+  badge.textContent = active && active.isVirtual ? 'DERIV VIRTUAL' : 'DERIV REAL';
+  badge.className = 'acct-badge ' + (active && active.isVirtual ? 'virtual' : 'real');
+  $('#balanceCurrency').textContent = derivState.currency;
+}
+
+async function selectDerivAccount(loginid){
+  try {
+    const res = await fetch('/api/deriv/select', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loginid })
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Could not switch account.'); return; }
+    derivState.active = data.active;
+    updateDerivUI();
+    await refreshRealBalance();
+    toast(`Switched to ${data.active} (${data.isVirtual ? 'Virtual' : 'REAL MONEY'}).`);
+  } catch (e) { toast('Could not switch account.'); }
+}
+
+async function disconnectDeriv(){
+  if (activeBot.strategy && activeBot.strategy.execution === 'deriv' && running) stopBot('Bot stopped — Deriv account disconnected.');
+  await fetch('/auth/deriv/logout', { method: 'POST' }).catch(() => {});
+  derivState.connected = false; derivState.accounts = []; derivState.active = null;
+  updateDerivUI();
+  $('#balance').textContent = '10,000.00';
+  $('#balanceCurrency').textContent = 'USD';
+  toast('Disconnected from Deriv. Back to local demo balance.');
+}
+
+async function refreshRealBalance(){
+  if (!derivState.connected) return;
+  try {
+    const res = await fetch('/api/deriv/balance');
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Could not fetch Deriv balance.'); return; }
+    $('#balance').textContent = Number(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    $('#balanceCurrency').textContent = data.currency;
+  } catch (e) { /* silent */ }
+}
+
+(function initDerivFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('derivConnected')) { toast('Deriv account connected.'); history.replaceState({}, '', '/'); }
+  if (params.get('derivError')) { toast(params.get('derivError')); history.replaceState({}, '', '/'); }
+})();
+checkDerivStatus();
+
+// ---------------------------------------------------------------------------
+// STRATEGY BUILDER
+// ---------------------------------------------------------------------------
+let strategies = [];
+const activeBot = { running: false, strategy: null, startBalance: 0 };
+
+function openStrategyModal(){ $('#strategyModal').classList.add('show'); loadStrategies(); }
+function closeStrategyModal(){ $('#strategyModal').classList.remove('show'); }
+
+function onExecutionChange(){
+  const isDeriv = $('#stExecution').value === 'deriv';
+  $('#stConfirmRealWrap').hidden = !isDeriv;
+  if (isDeriv && !derivState.connected) toast('Connect a Deriv account to use real execution.');
+}
+
+async function loadStrategies(){
+  try {
+    const res = await fetch('/api/strategies');
+    const data = await res.json();
+    strategies = data.strategies || [];
+    renderStrategies();
+  } catch (e) { toast('Could not load saved strategies.'); }
+}
+
+function renderStrategies(){
+  const list = $('#strategyList');
+  if (!strategies.length) { list.innerHTML = '<span class="empty">No strategies saved yet.</span>'; return; }
+  list.innerHTML = strategies.map(s => `
+    <div class="strategy-item">
+      <span><b>${labelSymbol(s.symbol)}</b> · ${s.direction} · ${s.stake} stake · ${s.execution === 'deriv' ? 'REAL DERIV' : 'SIMULATED'} · TP ${s.takeProfit}% / SL ${s.stopLoss}%</span>
+      <span style="display:flex;gap:6px">
+        <button class="use-btn" onclick="setActiveStrategy('${s.id}')">Use</button>
+        <button class="del-btn" onclick="deleteStrategy('${s.id}')">✕</button>
+      </span>
+    </div>`).join('');
+}
+
+function labelSymbol(sym){ return { R_75: 'Volatility 75', BOOM500: 'Boom 500', CRASH500: 'Crash 500' }[sym] || sym; }
+
+$('#strategyForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const execution = $('#stExecution').value;
+
+  if (execution === 'deriv') {
+    if (!derivState.connected) { toast('Connect a Deriv account first.'); return; }
+    if (!derivState.isVirtual && !$('#stConfirmReal').checked) {
+      toast('Please confirm you understand this uses real funds.');
+      return;
+    }
+  }
+
+  const payload = {
+    symbol: $('#stSymbol').value,
+    direction: $('#stDirection').value,
+    stake: Number($('#stStake').value),
+    takeProfit: Number($('#stTakeProfit').value),
+    stopLoss: Number($('#stStopLoss').value),
+    execution
+  };
+  try {
+    const res = await fetch('/api/strategies', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Could not save strategy.'); return; }
+    strategies.push(data.strategy);
+    renderStrategies();
+    setActiveStrategy(data.strategy.id);
+    toast('Strategy saved and set active.');
+  } catch (err) { toast('Could not save strategy.'); }
+});
+
+async function deleteStrategy(id){
+  try {
+    await fetch('/api/strategies/' + id, { method: 'DELETE' });
+    strategies = strategies.filter(s => s.id !== id);
+    if (activeBot.strategy && activeBot.strategy.id === id) {
+      activeBot.strategy = null;
+      $('#activeStrategyLabel').textContent = 'None — build one to run the bot';
+    }
+    renderStrategies();
+  } catch (e) { toast('Could not delete strategy.'); }
+}
+
+function setActiveStrategy(id){
+  const s = strategies.find(x => x.id === id);
+  if (!s) return;
+  activeBot.strategy = s;
+  const mode = s.execution === 'deriv' ? (derivState.isVirtual ? 'REAL Deriv (virtual)' : 'REAL Deriv (REAL MONEY)') : 'Simulated';
+  $('#activeStrategyLabel').textContent = `${labelSymbol(s.symbol)} · ${s.direction} · ${s.stake} stake · ${mode}`;
+  closeStrategyModal();
+}
+
+// ---------------------------------------------------------------------------
+// BOT LOOP — simulated locally, or real trades via the Deriv API
+// ---------------------------------------------------------------------------
+let running = false;
+let botTimer = null;
+
+function toggleBot(){
+  if (!running) {
+    if (!activeBot.strategy) { toast('Build and select a strategy first.'); openStrategyModal(); return; }
+    if (activeBot.strategy.execution === 'deriv' && !derivState.connected) { toast('Deriv account disconnected. Reconnect or switch to simulated.'); return; }
+    startBot();
+  } else {
+    stopBot('Demo bot stopped.');
+  }
+}
+
+async function startBot(){
+  running = true;
+  activeBot.startBalance = getBalance();
+  $('#runIcon').textContent = '■';
+  $('#runText').textContent = 'Stop Bot';
+  $('#botStatus').textContent = 'RUNNING';
+  toast(activeBot.strategy.execution === 'deriv' ? 'Bot started — placing REAL trades on Deriv.' : 'Demo bot started. No real trades are executed.');
+  tradeCycle();
+}
+
+function stopBot(message){
+  running = false;
+  clearTimeout(botTimer);
+  $('#runIcon').textContent = '▶';
+  $('#runText').textContent = 'Run Demo Bot';
+  $('#botStatus').textContent = 'READY';
+  if (message) toast(message);
+}
+
+function speedIntervalMs(){
+  const speed = Number($('#speedRange').value);
+  return { 1: 6000, 2: 3500, 3: 1800 }[speed] || 3500;
+}
+
+async function tradeCycle(){
+  if (!running || !activeBot.strategy) return;
+  const s = activeBot.strategy;
+
+  try {
+    let result;
+    if (s.execution === 'deriv') {
+      result = await executeDerivTrade(s);
+    } else {
+      result = executeLocalSimTrade(s);
+    }
+
+    if (!result) { botTimer = setTimeout(tradeCycle, speedIntervalMs()); return; }
+
+    const balance = getBalance();
+    const changePct = ((balance - activeBot.startBalance) / activeBot.startBalance) * 100;
+    if (s.takeProfit > 0 && changePct >= s.takeProfit) { stopBot(`Take-profit hit (+${changePct.toFixed(1)}%). Bot stopped.`); return; }
+    if (s.stopLoss > 0 && changePct <= -s.stopLoss) { stopBot(`Stop-loss hit (${changePct.toFixed(1)}%). Bot stopped.`); return; }
+    if (balance <= 0) { stopBot('Balance depleted. Bot stopped.'); return; }
+  } catch (err) {
+    stopBot('Bot stopped: ' + err.message);
+    return;
+  }
+
+  if (running) botTimer = setTimeout(tradeCycle, speedIntervalMs());
+}
+
+function executeLocalSimTrade(s){
+  const state = priceState[s.symbol];
+  const hist = state.history;
+  if (hist.length < 2) return null;
+
+  const prev = hist[hist.length - 2];
+  const curr = hist[hist.length - 1];
+  const movedUp = curr > prev;
+  const predictedUp = s.direction === 'RISE';
+  const win = movedUp === predictedUp;
+
+  const payoutRate = 0.85;
+  const pnl = win ? +(s.stake * payoutRate).toFixed(2) : -s.stake;
+  adjustBalance(pnl);
+  logTrade(s, win, pnl, curr, 'SIM');
+  return { win, pnl };
+}
+
+async function executeDerivTrade(s){
+  const res = await fetch('/api/deriv/trade', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symbol: s.symbol, direction: s.direction, stake: s.stake })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Deriv trade failed.');
+
+  await refreshRealBalance();
+  logTrade(s, data.isWin, data.profit, data.sellPrice || data.buyPrice, data.isVirtual ? 'VIRTUAL' : 'REAL');
+  return { win: data.isWin, pnl: data.profit };
+}
+
+function getBalance(){ return Number($('#balance').textContent.replace(/,/g, '')) || 0; }
+function adjustBalance(delta){
+  const next = Math.max(0, getBalance() + delta);
+  $('#balance').textContent = next.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function logTrade(strategy, win, pnl, price, tag){
+  const log = $('#tradeLog');
+  const empty = log.querySelector('.empty');
+  if (empty) empty.remove();
+  const row = document.createElement('div');
+  row.className = 'trade-row ' + (win ? 'win' : 'loss');
+  const time = new Date().toLocaleTimeString();
+  const priceLabel = Number.isFinite(price) ? price.toFixed(2) : '—';
+  row.innerHTML = `<span>${time} · ${labelSymbol(strategy.symbol)} · ${strategy.direction} @ ${priceLabel} · [${tag}]</span><span>${win ? 'WIN' : 'LOSS'} ${pnl >= 0 ? '+' : ''}${Number(pnl).toFixed(2)}</span>`;
+  log.appendChild(row);
+  while (log.children.length > 25) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+$('#speedRange').addEventListener('input', e => {
+  const labels = { 1: 'SAFE SPEED', 2: 'NORMAL SPEED', 3: 'FAST SPEED' };
+  $('#speedValue').textContent = labels[e.target.value];
+});
+
+$('#strategyModal').addEventListener('click', (e) => { if (e.target.id === 'strategyModal') closeStrategyModal(); });
+
+loadStrategies();
+fetch('/api/health').catch(() => {});
