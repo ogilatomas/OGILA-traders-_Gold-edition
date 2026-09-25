@@ -47,10 +47,10 @@
       </section>
 
       <section class="ticker-row" aria-label="Market ticker">
-        <div class="ticker live"><span class="pulse"></span> DEMO MODE</div>
-        <div class="ticker"><b>VOLATILITY 75</b><span>1,842.21</span><i>+1.42%</i></div>
-        <div class="ticker"><b>BOOM 500</b><span>892.40</span><i>+0.83%</i></div>
-        <div class="ticker"><b>CRASH 500</b><span>1,214.08</span><em>-0.37%</em></div>
+        <div class="ticker live"><span class="pulse" id="feedPulse"></span> <span id="feedStatus">CONNECTING…</span></div>
+        <div class="ticker" data-symbol="R_75"><b>VOLATILITY 75</b><span id="price-R_75">—</span><i id="change-R_75">+0.00%</i></div>
+        <div class="ticker" data-symbol="BOOM500"><b>BOOM 500</b><span id="price-BOOM500">—</span><i id="change-BOOM500">+0.00%</i></div>
+        <div class="ticker" data-symbol="CRASH500"><b>CRASH 500</b><span id="price-CRASH500">—</span><i id="change-CRASH500">+0.00%</i></div>
       </section>
 
       <section class="quick-actions" id="bots">
@@ -78,15 +78,15 @@
 
         <article class="feature-panel scanner" id="scanner">
           <div class="panel-label">MARKET SCANNER</div>
-          <div class="scan-row"><div><h2>Signals Monitor</h2><p>Track demo market conditions in real time.</p></div><div class="scan-score">78<span>%</span></div></div>
-          <div class="meter"><span style="width:78%"></span></div>
-          <div class="mini-stats"><span>Momentum <b>Strong</b></span><span>Trend <b>UP</b></span><span>Risk <b>Medium</b></span></div>
+          <div class="scan-row"><div><h2>Signals Monitor</h2><p id="scanSubtitle">Run AI Analysis to populate live signals.</p></div><div class="scan-score" id="scanScore">--<span>%</span></div></div>
+          <div class="meter"><span id="scanMeter" style="width:0%"></span></div>
+          <div class="mini-stats"><span>Momentum <b id="scanMomentum">—</b></span><span>Trend <b id="scanTrend">—</b></span><span>Risk <b id="scanRisk">—</b></span></div>
         </article>
       </section>
 
       <section class="tools-grid">
-        <article class="tool-card" id="analysis"><span class="tool-symbol">✦</span><div><h3>AI Analysis</h3><p>Generate a structured market readout with trend, momentum and risk notes.</p></div><button onclick="runAnalysis()">Analyze market</button></article>
-        <article class="tool-card" id="strategy"><span class="tool-symbol">⌘</span><div><h3>Strategy Builder</h3><p>Combine entry rules, filters, stop settings and position sizing.</p></div><button onclick="openStrategy()">Build strategy</button></article>
+        <article class="tool-card" id="analysis"><span class="tool-symbol">✦</span><div><h3>AI Analysis</h3><p id="aiSummary">Generate a structured market readout with trend, momentum and risk notes.</p></div><button onclick="runAnalysis()" id="analyzeBtn">Analyze market</button></article>
+        <article class="tool-card" id="strategy"><span class="tool-symbol">⌘</span><div><h3>Strategy Builder</h3><p>Combine entry rules, filters, stop settings and position sizing.</p></div><button onclick="openStrategyModal()">Build strategy</button></article>
         <article class="tool-card" id="charts"><span class="tool-symbol">▥</span><div><h3>Live Charts</h3><p>Switch between markets and inspect demo price movement.</p></div><button onclick="toast('Live Deriv chart connection comes next.')">Open charts</button></article>
       </section>
 
@@ -96,7 +96,49 @@
         <input id="speedRange" type="range" min="1" max="3" value="3" aria-label="Execution speed" />
         <div class="bot-status"><span class="status-dot"></span><span id="botStatus">READY</span></div>
       </section>
+
+      <section class="active-strategy" id="activeStrategyBar">
+        <span>Active strategy:</span> <b id="activeStrategyLabel">None — build one to run the bot</b>
+      </section>
+
+      <section class="trade-log">
+        <div class="panel-label">TRADE LOG (DEMO)</div>
+        <div id="tradeLog" class="trade-log-body"><span class="empty">No trades yet. Run the demo bot to see simulated fills here.</span></div>
+      </section>
     </main>
+
+    <div class="modal-overlay" id="strategyModal">
+      <div class="modal">
+        <div class="modal-head"><h2>Strategy Builder</h2><button class="modal-close" onclick="closeStrategyModal()">✕</button></div>
+        <form id="strategyForm" class="modal-body">
+          <label>Market
+            <select id="stSymbol">
+              <option value="R_75">Volatility 75</option>
+              <option value="BOOM500">Boom 500</option>
+              <option value="CRASH500">Crash 500</option>
+            </select>
+          </label>
+          <label>Direction
+            <select id="stDirection">
+              <option value="RISE">Rise (price moves up)</option>
+              <option value="FALL">Fall (price moves down)</option>
+            </select>
+          </label>
+          <label>Stake per trade (USD)
+            <input id="stStake" type="number" min="1" max="1000" step="1" value="10" required />
+          </label>
+          <label>Take profit — stop session at (%)
+            <input id="stTakeProfit" type="number" min="0" max="100" step="1" value="20" />
+          </label>
+          <label>Stop loss — stop session at (%)
+            <input id="stStopLoss" type="number" min="0" max="100" step="1" value="15" />
+          </label>
+          <button type="submit" class="primary">Save strategy</button>
+        </form>
+        <div class="panel-label" style="margin-top:14px">SAVED STRATEGIES</div>
+        <div id="strategyList" class="strategy-list"><span class="empty">No strategies saved yet.</span></div>
+      </div>
+    </div>
 
     <div class="risk-chip" onclick="toast('Risk controls: demo only. Never trade funds you cannot afford to lose.')">⚠ Risk Disclaimer</div>
     <button class="ai-orb" id="ai" onclick="runAnalysis()"><span>AI</span><i></i></button>
