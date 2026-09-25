@@ -8,53 +8,38 @@ function scrollToId(id){ document.getElementById(id)?.scrollIntoView({behavior:'
 // LIVE PRICES — Deriv public WebSocket feed (no login required for ticks)
 // ---------------------------------------------------------------------------
 const SYMBOLS = ['R_75', 'BOOM500', 'CRASH500'];
-const priceState = {}; // { R_75: { last, open, history: [] } }
+const priceState = {};
 SYMBOLS.forEach(s => priceState[s] = { last: null, open: null, history: [] });
 
-let derivSocket = null;
+let priceSocket = null;
 let reconnectTimer = null;
 
-function connectDeriv(){
+function connectPriceFeed(){
   try {
-    derivSocket = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+    priceSocket = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
   } catch (e) {
     setFeedStatus(false);
     scheduleReconnect();
     return;
   }
 
-  derivSocket.onopen = () => {
+  priceSocket.onopen = () => {
     setFeedStatus(true);
-    SYMBOLS.forEach(symbol => {
-      derivSocket.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
-    });
+    SYMBOLS.forEach(symbol => priceSocket.send(JSON.stringify({ ticks: symbol, subscribe: 1 })));
   };
 
-  derivSocket.onmessage = (event) => {
+  priceSocket.onmessage = (event) => {
     let data;
     try { data = JSON.parse(event.data); } catch (e) { return; }
-    if (data.msg_type === 'tick' && data.tick) {
-      handleTick(data.tick.symbol, Number(data.tick.quote));
-    }
-    if (data.error) {
-      console.error('Deriv API error:', data.error.message);
-    }
+    if (data.msg_type === 'tick' && data.tick) handleTick(data.tick.symbol, Number(data.tick.quote));
+    if (data.error) console.error('Deriv API error:', data.error.message);
   };
 
-  derivSocket.onclose = () => {
-    setFeedStatus(false);
-    scheduleReconnect();
-  };
-
-  derivSocket.onerror = () => {
-    derivSocket.close();
-  };
+  priceSocket.onclose = () => { setFeedStatus(false); scheduleReconnect(); };
+  priceSocket.onerror = () => { priceSocket.close(); };
 }
 
-function scheduleReconnect(){
-  clearTimeout(reconnectTimer);
-  reconnectTimer = setTimeout(connectDeriv, 4000);
-}
+function scheduleReconnect(){ clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectPriceFeed, 4000); }
 
 function setFeedStatus(live){
   const statusEl = $('#feedStatus');
@@ -82,16 +67,12 @@ function handleTick(symbol, quote){
     changeEl.textContent = `${sign}${pct.toFixed(2)}%`;
     changeEl.style.color = pct >= 0 ? '#c7a33a' : '#b56e3d';
   }
-
-  if (activeBot.running && activeBot.strategy && activeBot.strategy.symbol === symbol) {
-    activeBot.lastTickBySymbol[symbol] = quote;
-  }
 }
 
-connectDeriv();
+connectPriceFeed();
 
 // ---------------------------------------------------------------------------
-// AI ANALYSIS — calls the server, which calls the real Anthropic API
+// AI ANALYSIS
 // ---------------------------------------------------------------------------
 async function runAnalysis(){
   const btn = $('#analyzeBtn');
@@ -104,23 +85,12 @@ async function runAnalysis(){
 
   try {
     const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ markets })
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ markets })
     });
     const data = await res.json();
 
-    if (!res.ok) {
-      toast(data.error || 'Analysis failed.');
-      if (summaryEl) summaryEl.textContent = 'Analysis failed — try again in a moment.';
-      return;
-    }
-
-    if (data.fallback) {
-      toast('AI Analysis needs setup — see README (ANTHROPIC_API_KEY).');
-      if (summaryEl) summaryEl.textContent = data.summary;
-      return;
-    }
+    if (!res.ok) { toast(data.error || 'Analysis failed.'); if (summaryEl) summaryEl.textContent = 'Analysis failed — try again in a moment.'; return; }
+    if (data.fallback) { toast('AI Analysis needs setup — see README (ANTHROPIC_API_KEY).'); if (summaryEl) summaryEl.textContent = data.summary; return; }
 
     $('#scanScore').innerHTML = `${data.score}<span>%</span>`;
     $('#scanMeter').style.width = `${data.score}%`;
@@ -139,17 +109,112 @@ async function runAnalysis(){
 }
 
 // ---------------------------------------------------------------------------
-// STRATEGY BUILDER — saved via the server session, used by the demo bot
+// DERIV ACCOUNT CONNECTION (real OAuth login, real or virtual account)
+// ---------------------------------------------------------------------------
+const derivState = { connected: false, accounts: [], active: null, isVirtual: null, currency: 'USD' };
+
+function connectDerivAccount(){ window.location.href = '/auth/deriv/login'; }
+
+async function checkDerivStatus(){
+  try {
+    const res = await fetch('/api/deriv/accounts');
+    const data = await res.json();
+    derivState.connected = data.connected;
+    derivState.accounts = data.accounts || [];
+    derivState.active = data.active;
+    updateDerivUI();
+    if (data.connected) await refreshRealBalance();
+  } catch (e) { /* silent */ }
+}
+
+function updateDerivUI(){
+  const btn = $('#derivConnectBtn');
+  const panel = $('#derivPanel');
+  const badge = $('#accountBadge');
+  const select = $('#derivAccountSelect');
+  const warning = $('#derivRealWarning');
+
+  if (!derivState.connected) {
+    btn.textContent = 'Connect Deriv Account';
+    btn.classList.remove('connected');
+    panel.hidden = true;
+    badge.textContent = 'LOCAL DEMO';
+    badge.className = 'acct-badge local';
+    return;
+  }
+
+  btn.textContent = 'Deriv Connected ✓';
+  btn.classList.add('connected');
+  panel.hidden = false;
+
+  select.innerHTML = derivState.accounts.map(a =>
+    `<option value="${a.loginid}" ${a.loginid === derivState.active ? 'selected' : ''}>${a.loginid} — ${a.currency} ${a.isVirtual ? '(Virtual/Demo)' : '(REAL MONEY)'}</option>`
+  ).join('');
+
+  const active = derivState.accounts.find(a => a.loginid === derivState.active);
+  derivState.isVirtual = active ? active.isVirtual : null;
+  derivState.currency = active ? active.currency : 'USD';
+  warning.hidden = !(active && !active.isVirtual);
+  badge.textContent = active && active.isVirtual ? 'DERIV VIRTUAL' : 'DERIV REAL';
+  badge.className = 'acct-badge ' + (active && active.isVirtual ? 'virtual' : 'real');
+  $('#balanceCurrency').textContent = derivState.currency;
+}
+
+async function selectDerivAccount(loginid){
+  try {
+    const res = await fetch('/api/deriv/select', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loginid })
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Could not switch account.'); return; }
+    derivState.active = data.active;
+    updateDerivUI();
+    await refreshRealBalance();
+    toast(`Switched to ${data.active} (${data.isVirtual ? 'Virtual' : 'REAL MONEY'}).`);
+  } catch (e) { toast('Could not switch account.'); }
+}
+
+async function disconnectDeriv(){
+  if (activeBot.strategy && activeBot.strategy.execution === 'deriv' && running) stopBot('Bot stopped — Deriv account disconnected.');
+  await fetch('/auth/deriv/logout', { method: 'POST' }).catch(() => {});
+  derivState.connected = false; derivState.accounts = []; derivState.active = null;
+  updateDerivUI();
+  $('#balance').textContent = '10,000.00';
+  $('#balanceCurrency').textContent = 'USD';
+  toast('Disconnected from Deriv. Back to local demo balance.');
+}
+
+async function refreshRealBalance(){
+  if (!derivState.connected) return;
+  try {
+    const res = await fetch('/api/deriv/balance');
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Could not fetch Deriv balance.'); return; }
+    $('#balance').textContent = Number(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    $('#balanceCurrency').textContent = data.currency;
+  } catch (e) { /* silent */ }
+}
+
+(function initDerivFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('derivConnected')) { toast('Deriv account connected.'); history.replaceState({}, '', '/'); }
+  if (params.get('derivError')) { toast(params.get('derivError')); history.replaceState({}, '', '/'); }
+})();
+checkDerivStatus();
+
+// ---------------------------------------------------------------------------
+// STRATEGY BUILDER
 // ---------------------------------------------------------------------------
 let strategies = [];
-const activeBot = { running: false, strategy: null, lastTickBySymbol: {}, timer: null, startBalance: 0 };
+const activeBot = { running: false, strategy: null, startBalance: 0 };
 
-function openStrategyModal(){
-  $('#strategyModal').classList.add('show');
-  loadStrategies();
-}
-function closeStrategyModal(){
-  $('#strategyModal').classList.remove('show');
+function openStrategyModal(){ $('#strategyModal').classList.add('show'); loadStrategies(); }
+function closeStrategyModal(){ $('#strategyModal').classList.remove('show'); }
+
+function onExecutionChange(){
+  const isDeriv = $('#stExecution').value === 'deriv';
+  $('#stConfirmRealWrap').hidden = !isDeriv;
+  if (isDeriv && !derivState.connected) toast('Connect a Deriv account to use real execution.');
 }
 
 async function loadStrategies(){
@@ -158,20 +223,15 @@ async function loadStrategies(){
     const data = await res.json();
     strategies = data.strategies || [];
     renderStrategies();
-  } catch (e) {
-    toast('Could not load saved strategies.');
-  }
+  } catch (e) { toast('Could not load saved strategies.'); }
 }
 
 function renderStrategies(){
   const list = $('#strategyList');
-  if (!strategies.length) {
-    list.innerHTML = '<span class="empty">No strategies saved yet.</span>';
-    return;
-  }
+  if (!strategies.length) { list.innerHTML = '<span class="empty">No strategies saved yet.</span>'; return; }
   list.innerHTML = strategies.map(s => `
     <div class="strategy-item">
-      <span><b>${labelSymbol(s.symbol)}</b> · ${s.direction} · $${s.stake} stake · TP ${s.takeProfit}% / SL ${s.stopLoss}%</span>
+      <span><b>${labelSymbol(s.symbol)}</b> · ${s.direction} · ${s.stake} stake · ${s.execution === 'deriv' ? 'REAL DERIV' : 'SIMULATED'} · TP ${s.takeProfit}% / SL ${s.stopLoss}%</span>
       <span style="display:flex;gap:6px">
         <button class="use-btn" onclick="setActiveStrategy('${s.id}')">Use</button>
         <button class="del-btn" onclick="deleteStrategy('${s.id}')">✕</button>
@@ -179,24 +239,31 @@ function renderStrategies(){
     </div>`).join('');
 }
 
-function labelSymbol(sym){
-  return { R_75: 'Volatility 75', BOOM500: 'Boom 500', CRASH500: 'Crash 500' }[sym] || sym;
-}
+function labelSymbol(sym){ return { R_75: 'Volatility 75', BOOM500: 'Boom 500', CRASH500: 'Crash 500' }[sym] || sym; }
 
 $('#strategyForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const execution = $('#stExecution').value;
+
+  if (execution === 'deriv') {
+    if (!derivState.connected) { toast('Connect a Deriv account first.'); return; }
+    if (!derivState.isVirtual && !$('#stConfirmReal').checked) {
+      toast('Please confirm you understand this uses real funds.');
+      return;
+    }
+  }
+
   const payload = {
     symbol: $('#stSymbol').value,
     direction: $('#stDirection').value,
     stake: Number($('#stStake').value),
     takeProfit: Number($('#stTakeProfit').value),
-    stopLoss: Number($('#stStopLoss').value)
+    stopLoss: Number($('#stStopLoss').value),
+    execution
   };
   try {
     const res = await fetch('/api/strategies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (!res.ok) { toast(data.error || 'Could not save strategy.'); return; }
@@ -204,9 +271,7 @@ $('#strategyForm').addEventListener('submit', async (e) => {
     renderStrategies();
     setActiveStrategy(data.strategy.id);
     toast('Strategy saved and set active.');
-  } catch (err) {
-    toast('Could not save strategy.');
-  }
+  } catch (err) { toast('Could not save strategy.'); }
 });
 
 async function deleteStrategy(id){
@@ -218,74 +283,89 @@ async function deleteStrategy(id){
       $('#activeStrategyLabel').textContent = 'None — build one to run the bot';
     }
     renderStrategies();
-  } catch (e) {
-    toast('Could not delete strategy.');
-  }
+  } catch (e) { toast('Could not delete strategy.'); }
 }
 
 function setActiveStrategy(id){
   const s = strategies.find(x => x.id === id);
   if (!s) return;
   activeBot.strategy = s;
-  $('#activeStrategyLabel').textContent = `${labelSymbol(s.symbol)} · ${s.direction} · $${s.stake} stake`;
+  const mode = s.execution === 'deriv' ? (derivState.isVirtual ? 'REAL Deriv (virtual)' : 'REAL Deriv (REAL MONEY)') : 'Simulated';
+  $('#activeStrategyLabel').textContent = `${labelSymbol(s.symbol)} · ${s.direction} · ${s.stake} stake · ${mode}`;
   closeStrategyModal();
 }
 
 // ---------------------------------------------------------------------------
-// DEMO BOT — simulates fills off real price direction, no real trades
+// BOT LOOP — simulated locally, or real trades via the Deriv API
 // ---------------------------------------------------------------------------
 let running = false;
+let botTimer = null;
+
 function toggleBot(){
   if (!running) {
-    if (!activeBot.strategy) {
-      toast('Build and select a strategy first.');
-      openStrategyModal();
-      return;
-    }
+    if (!activeBot.strategy) { toast('Build and select a strategy first.'); openStrategyModal(); return; }
+    if (activeBot.strategy.execution === 'deriv' && !derivState.connected) { toast('Deriv account disconnected. Reconnect or switch to simulated.'); return; }
     startBot();
   } else {
     stopBot('Demo bot stopped.');
   }
 }
 
-function startBot(){
+async function startBot(){
   running = true;
-  activeBot.running = true;
   activeBot.startBalance = getBalance();
   $('#runIcon').textContent = '■';
-  $('#runText').textContent = 'Stop Demo Bot';
+  $('#runText').textContent = 'Stop Bot';
   $('#botStatus').textContent = 'RUNNING';
-  toast('Demo bot started. No real trades are executed.');
-  scheduleNextTrade();
+  toast(activeBot.strategy.execution === 'deriv' ? 'Bot started — placing REAL trades on Deriv.' : 'Demo bot started. No real trades are executed.');
+  tradeCycle();
 }
 
 function stopBot(message){
   running = false;
-  activeBot.running = false;
-  clearTimeout(activeBot.timer);
+  clearTimeout(botTimer);
   $('#runIcon').textContent = '▶';
   $('#runText').textContent = 'Run Demo Bot';
   $('#botStatus').textContent = 'READY';
   if (message) toast(message);
 }
 
-function scheduleNextTrade(){
+function speedIntervalMs(){
   const speed = Number($('#speedRange').value);
-  const intervalMs = { 1: 6000, 2: 3500, 3: 1800 }[speed] || 3500;
-  activeBot.timer = setTimeout(executeSimulatedTrade, intervalMs);
+  return { 1: 6000, 2: 3500, 3: 1800 }[speed] || 3500;
 }
 
-function executeSimulatedTrade(){
+async function tradeCycle(){
   if (!running || !activeBot.strategy) return;
   const s = activeBot.strategy;
-  const state = priceState[s.symbol];
-  const hist = state.history;
 
-  if (hist.length < 2) {
-    // not enough live data yet, wait and retry
-    scheduleNextTrade();
+  try {
+    let result;
+    if (s.execution === 'deriv') {
+      result = await executeDerivTrade(s);
+    } else {
+      result = executeLocalSimTrade(s);
+    }
+
+    if (!result) { botTimer = setTimeout(tradeCycle, speedIntervalMs()); return; }
+
+    const balance = getBalance();
+    const changePct = ((balance - activeBot.startBalance) / activeBot.startBalance) * 100;
+    if (s.takeProfit > 0 && changePct >= s.takeProfit) { stopBot(`Take-profit hit (+${changePct.toFixed(1)}%). Bot stopped.`); return; }
+    if (s.stopLoss > 0 && changePct <= -s.stopLoss) { stopBot(`Stop-loss hit (${changePct.toFixed(1)}%). Bot stopped.`); return; }
+    if (balance <= 0) { stopBot('Balance depleted. Bot stopped.'); return; }
+  } catch (err) {
+    stopBot('Bot stopped: ' + err.message);
     return;
   }
+
+  if (running) botTimer = setTimeout(tradeCycle, speedIntervalMs());
+}
+
+function executeLocalSimTrade(s){
+  const state = priceState[s.symbol];
+  const hist = state.history;
+  if (hist.length < 2) return null;
 
   const prev = hist[hist.length - 2];
   const curr = hist[hist.length - 1];
@@ -293,45 +373,41 @@ function executeSimulatedTrade(){
   const predictedUp = s.direction === 'RISE';
   const win = movedUp === predictedUp;
 
-  const payoutRate = 0.85; // demo payout assumption for a rise/fall style contract
+  const payoutRate = 0.85;
   const pnl = win ? +(s.stake * payoutRate).toFixed(2) : -s.stake;
   adjustBalance(pnl);
-  logTrade(s, win, pnl, curr);
-
-  const balance = getBalance();
-  const changePct = ((balance - activeBot.startBalance) / activeBot.startBalance) * 100;
-  if (s.takeProfit > 0 && changePct >= s.takeProfit) {
-    stopBot(`Take-profit hit (+${changePct.toFixed(1)}%). Bot stopped.`);
-    return;
-  }
-  if (s.stopLoss > 0 && changePct <= -s.stopLoss) {
-    stopBot(`Stop-loss hit (${changePct.toFixed(1)}%). Bot stopped.`);
-    return;
-  }
-  if (balance <= 0) {
-    stopBot('Demo balance depleted. Bot stopped.');
-    return;
-  }
-
-  scheduleNextTrade();
+  logTrade(s, win, pnl, curr, 'SIM');
+  return { win, pnl };
 }
 
-function getBalance(){
-  return Number($('#balance').textContent.replace(/,/g, '')) || 0;
+async function executeDerivTrade(s){
+  const res = await fetch('/api/deriv/trade', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symbol: s.symbol, direction: s.direction, stake: s.stake })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Deriv trade failed.');
+
+  await refreshRealBalance();
+  logTrade(s, data.isWin, data.profit, data.sellPrice || data.buyPrice, data.isVirtual ? 'VIRTUAL' : 'REAL');
+  return { win: data.isWin, pnl: data.profit };
 }
+
+function getBalance(){ return Number($('#balance').textContent.replace(/,/g, '')) || 0; }
 function adjustBalance(delta){
   const next = Math.max(0, getBalance() + delta);
   $('#balance').textContent = next.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function logTrade(strategy, win, pnl, price){
+function logTrade(strategy, win, pnl, price, tag){
   const log = $('#tradeLog');
   const empty = log.querySelector('.empty');
   if (empty) empty.remove();
   const row = document.createElement('div');
   row.className = 'trade-row ' + (win ? 'win' : 'loss');
   const time = new Date().toLocaleTimeString();
-  row.innerHTML = `<span>${time} · ${labelSymbol(strategy.symbol)} · ${strategy.direction} @ ${price.toFixed(2)}</span><span>${win ? 'WIN' : 'LOSS'} ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</span>`;
+  const priceLabel = Number.isFinite(price) ? price.toFixed(2) : '—';
+  row.innerHTML = `<span>${time} · ${labelSymbol(strategy.symbol)} · ${strategy.direction} @ ${priceLabel} · [${tag}]</span><span>${win ? 'WIN' : 'LOSS'} ${pnl >= 0 ? '+' : ''}${Number(pnl).toFixed(2)}</span>`;
   log.appendChild(row);
   while (log.children.length > 25) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
@@ -342,10 +418,7 @@ $('#speedRange').addEventListener('input', e => {
   $('#speedValue').textContent = labels[e.target.value];
 });
 
-// Close modal on overlay click (not on inner modal click)
-$('#strategyModal').addEventListener('click', (e) => {
-  if (e.target.id === 'strategyModal') closeStrategyModal();
-});
+$('#strategyModal').addEventListener('click', (e) => { if (e.target.id === 'strategyModal') closeStrategyModal(); });
 
 loadStrategies();
 fetch('/api/health').catch(() => {});
